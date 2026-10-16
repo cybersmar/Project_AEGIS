@@ -11,3 +11,5 @@ docker-compose.yml
 .lock
 
 /geoip_database_management/
+
+*.gz
