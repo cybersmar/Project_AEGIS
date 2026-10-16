@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projeto Aegis - Simulação do Fluxo Corrigido</title>
+    <style>
+        :root {
+            --bg-color: #06090f;
+            --panel-bg: #0d1117;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent-green: #2ea043;
+            --accent-green-glow: #39ff14;
+            --accent-red: #da3633;
+            --accent-red-glow: #ff073a;
+            --accent-blue: #1f6feb;
+            --accent-blue-glow: #00bfff;
+            --accent-purple: #8957e5;
+            --accent-purple-glow: #bd00ff;
+            --accent-orange: #d29922;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 20;
+        }
+
+        header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        header h1 span {
+            color: var(--accent-green-glow);
+            font-size: 12px;
+            text-transform: uppercase;
+            border: 1px solid var(--accent-green);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-green-glow);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-green-glow);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; transform: scale(0.9); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0.5; transform: scale(0.9); }
+        }
+
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar Controls */
+        .sidebar {
+            width: 360px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 16px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        .sidebar-section {
+            background-color: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 14px;
+        }
+
+        .sidebar-section h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .step-button {
+            width: 100%;
+            background-color: #161b22;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 14px;
+            border-radius: 6px;
+            text-align: left;
+            font-size: 13px;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .step-button:hover {
+            border-color: var(--accent-blue-glow);
+            background-color: rgba(0, 191, 255, 0.03);
+        }
+
+        .step-button.active {
+            border-color: var(--accent-green-glow);
+            background-color: rgba(57, 255, 20, 0.05);
+            font-weight: 600;
+        }
+
+        .step-num {
+            background-color: #21262d;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 11px;
+            min-width: 22px;
+            text-align: center;
+            font-family: monospace;
+        }
+
+        .step-button.active .step-num {
+            background-color: var(--accent-green);
+            color: #fff;
+        }
+
+        /* Interactive Dashboard Block inside Sidebar */
+        .soar-trigger-panel {
+            margin-top: 8px;
+            border-top: 1px dashed var(--border-color);
+            padding-top: 12px;
+            display: none;
+        }
+
+        .panel-alert-title {
+            font-size: 12px;
+            color: var(--accent-orange);
+            font-weight: bold;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .soar-btn {
+            flex: 1;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            transition: opacity 0.2s;
+        }
+
+        .soar-btn:hover { opacity: 0.9; }
+        .soar-btn-block-local { background-color: var(--accent-orange); color: #000; }
+        .soar-btn-block-cloud { background-color: var(--accent-red); color: #fff; }
+        .soar-btn-abort { background-color: #21262d; color: var(--text-main); border: 1px solid var(--border-color); }
+
+        /* Live Terminal Logs */
+        .terminal-block {
+            flex: 1;
+            background-color: #010409;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 11px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 280px;
+        }
+
+        .log-line { line-height: 1.4; }
+        .log-ts { color: var(--text-muted); }
+        .log-lbl { font-weight: bold; padding: 1px 4px; border-radius: 2px; font-size: 10px; text-transform: uppercase; }
+        .lbl-attack { background-color: rgba(218, 54, 51, 0.15); color: var(--accent-red-glow); }
+        .lbl-vpn { background-color: rgba(46, 160, 67, 0.15); color: var(--accent-green-glow); }
+        .lbl-siem { background-color: rgba(31, 111, 235, 0.15); color: var(--accent-blue-glow); }
+        .lbl-ai { background-color: rgba(137, 87, 229, 0.15); color: var(--accent-purple-glow); }
+        .lbl-soar { background-color: rgba(210, 153, 34, 0.15); color: var(--accent-orange); }
+
+        /* Architecture Map Canvas */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background-color: #0b0e14;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            max-width: 1150px;
+            max-height: 850px;
+        }
+
+        /* SVG Components Graphics */
+        .perimeter-box {
+            fill: rgba(255, 255, 255, 0.005);
+            stroke: #30363d;
+            stroke-width: 1.5;
+            stroke-dasharray: 4 4;
+        }
+
+        .perimeter-label {
+            fill: var(--text-muted);
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .component-node {
+            fill: #161b22;
+            stroke: var(--border-color);
+            stroke-width: 1.5;
+            transition: all 0.3s;
+        }
+
+        .component-node.active-blue { stroke: var(--accent-blue-glow); fill: #131c2e; }
+        .component-node.active-green { stroke: var(--accent-green-glow); fill: #122417; }
+        .component-node.active-red { stroke: var(--accent-red-glow); fill: #281517; }
+        .component-node.active-purple { stroke: var(--accent-purple-glow); fill: #1f1530; }
+        .component-node.active-orange { stroke: var(--accent-orange); fill: #241d12; }
+
+        .comp-text {
+            fill: var(--text-main);
+            font-size: 11px;
+            pointer-events: none;
+        }
+
+        .comp-title {
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        /* Network Topology Links */
+        .net-link {
+            fill: none;
+            stroke: #21262d;
+            stroke-width: 1.5;
+            transition: all 0.3s;
+        }
+
+        .net-link.flow-attack {
+            stroke: var(--accent-red-glow);
+            stroke-dasharray: 5, 4;
+            animation: move-flow 1s infinite linear;
+        }
+
+        .net-link.flow-vpn {
+            stroke: var(--accent-green-glow);
+            stroke-dasharray: 5, 4;
+            animation: move-flow 1s infinite linear;
+        }
+
+        .net-link.flow-siem {
+            stroke: var(--accent-blue-glow);
+            stroke-dasharray: 5, 4;
+            animation: move-flow 1s infinite linear;
+        }
+
+        .net-link.flow-soar-local {
+            stroke: var(--accent-orange);
+            stroke-dasharray: 5, 4;
+            animation: move-flow 1s infinite linear;
+        }
+
+        .net-link.flow-soar-cloud {
+            stroke: var(--accent-red-glow);
+            stroke-dasharray: 5, 4;
+            animation: move-flow 1s infinite linear;
+        }
+
+        @keyframes move-flow {
+            to { stroke-dashoffset: -18; }
+        }
+
+        /* Overlay Shields */
+        .block-asset {
+            display: none;
+            animation: pop-in 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes pop-in {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Projeto Aegis v2 <span>SIEM / SOAR Pipeline Corrigido</span></h1>
+        <div class="status-container">
+            <div class="status-dot"></div>
+            <span id="global-status-text">Defesa Ativa / Escuta de Tráfego</span>
+        </div>
+    </header>
+
+    <div class="main-layout">
+        <!-- Control Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <h3>Passos do Workflow</h3>
+                
+                <button class="step-button" id="step-btn-1" onclick="executeStep(1)">
+                    <span class="step-num">1</span>
+                    <span>Ataque de Botnet (Internet)</span>
+                </button>
+                
+                <button class="step-button" id="step-btn-2" onclick="executeStep(2)">
+                    <span class="step-num">2</span>
+                    <span>Túnel Seguro Tailscale VPN</span>
+                </button>
+                
+                <button class="step-button" id="step-btn-3" onclick="executeStep(3)">
+                    <span class="step-num">3</span>
+                    <span>Ingestão ELT e Enriquecimento</span>
+                </button>
+                
+                <button class="step-button" id="step-btn-4" onclick="executeStep(4)">
+                    <span class="step-num">4</span>
+                    <span>Análise Gen AI & Dashboard</span>
+                </button>
+
+                <!-- Human In the Loop Trigger Panel -->
+                <div class="soar-trigger-panel" id="soar-interact-panel">
+                    <div class="panel-alert-title">🤖 ACÇÃO DO AGENTE AI / KIBANA BUTTON</div>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">
+                        Anomalia validada pelo Llama 3 (T1071 C2). Selecione o método de mitigação ativa do SOAR:
+                    </p>
+                    <div class="action-button-group">
+                        <button class="soar-btn soar-btn-block-local" onclick="triggerMitigation('local')">Bloquear Local (iptables)</button>
+                        <button class="soar-btn soar-btn-block-cloud" onclick="triggerMitigation('cloud')">Bloquear Cloud (NACL)</button>
+                    </div>
+                    <div style="margin-top: 6px;">
+                        <button class="soar-btn soar-btn-abort" style="width:100%;" onclick="triggerMitigation('abort')">Abortar Acção</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terminal Area -->
+            <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                <h3>Terminal do Operador SOC</h3>
+                <div class="terminal-block" id="soc-terminal">
+                    <div class="log-line"><span class="log-ts">[15:42:01]</span> <span class="log-lbl lbl-siem">SISTEMA</span> Inicialização concluída. Escuta de portas ativa.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graphics View Canvas Container -->
+        <div class="canvas-area">
+            <svg viewBox="0 0 1150 850">
+                <!-- ZONA 1: INTERNET EXTERNA -->
+                <rect class="perimeter-box" x="20" y="30" width="240" height="790" rx="8" />
+                <text class="perimeter-label" x="35" y="55">1. Internet Externa (Fora do Perímetro)</text>
+
+                <!-- ZONA 2: AWS CLOUD PERIMETER -->
+                <rect class="perimeter-box" x="290" y="30" width="380" height="790" rx="8" />
+                <text class="perimeter-label" x="305" y="55">2. Perímetro AWS Cloud</text>
+
+                <!-- ZONA 3: LOCAL ANALYST ENVIRONMENT -->
+                <rect class="perimeter-box" x="700" y="30" width="430" height="790" rx="8" />
+                <text class="perimeter-label" x="715" y="55">3. Máquina Analista (Ambiente Local)</text>
+
+                <!-- NETWORK LINKS (PATH TOPOLOGY) -->
+                <!-- Attack Flow -->
+                <path id="link-attack" class="net-link" d="M 130 180 L 340 180" />
+                <!-- Honeypot logs to Tailscale -->
+                <path id="link-cowrie-vpn" class="net-link" d="M 400 220 L 400 410 L 480 410" />
+                <!-- Tailscale to Python ETL -->
+                <path id="link-vpn-etl" class="net-link" d="M 600 410 L 730 220" />
+                <!-- Python ETL to Logstash -->
+                <path id="link-etl-logstash" class="net-link" d="M 850 220 L 930 220" />
+                <!-- Logstash to Elasticsearch -->
+                <path id="link-logstash-es" class="net-link" d="M 990 260 L 990 350" />
+                
+                <!-- Elasticsearch Enrichments & Outputs -->
+                <path id="link-es-otx" class="net-link" d="M 1050 380 L 1100 380 L 1100 480 L 1050 480" />
+                <path id="link-es-ml" class="net-link" d="M 990 410 L 990 530" />
+                <path id="link-es-kibana" class="net-link" d="M 930 380 L 850 380" />
+                <path id="link-es-neo4j" class="net-link" d="M 930 400 L 850 490" />
+                
+                <!-- Kibana and Data Logs to Llama 3 Agent -->
+                <path id="link-kibana-llama" class="net-link" d="M 790 410 L 790 620" />
+                <path id="link-ml-llama" class="net-link" d="M 930 565 L 850 640" />
+                
+                <!-- ETL to AWS S3 Data Lake (As configured) -->
+                <path id="link-etl-s3" class="net-link" d="M 790 180 L 530 140" />
+
+                <!-- SOAR Mitigation Reverse Pathways -->
+                <!-- Local Mitigation: Block via iptables back to EC2 Docker -->
+                <path id="link-soar-local" class="net-link" d="M 730 660 L 400 660 L 400 220" />
+                
+                <!-- Cloud Mitigation: SOAR to API Gateway -> Lambda -> NACL -->
+                <path id="link-soar-cloud-gw" class="net-link" d="M 790 700 L 790 770 L 610 770" />
+                <path id="link-gw-lambda" class="net-link" d="M 490 770 L 410 770" />
+                <path id="link-lambda-nacl" class="net-link" d="M 350 740 L 350 330" />
+
+                <!-- GRAPHICAL NODES LAYER -->
+                <!-- 1. Botnet Node (Internet) -->
+                <g id="node-botnet">
+                    <rect class="component-node active-red" x="50" y="140" width="160" height="70" rx="6" />
+                    <text class="comp-text comp-title" x="65" y="165" fill="var(--accent-red-glow)">BOTNET (ATACANTE)</text>
+                    <text class="comp-text" x="65" y="185">Origem: Internet Pública</text>
+                    <text class="comp-text" x="65" y="200" fill="var(--text-muted)">IP: 185.220.101.5</text>
+                </g>
+
+                <!-- 2. AWS EC2 Honeypot (Cowrie) -->
+                <g id="node-cowrie">
+                    <rect class="component-node" x="310" y="140" width="180" height="85" rx="6" />
+                    <text class="comp-text comp-title" x="325" y="165" fill="var(--accent-orange)">AWS EC2 Instance</text>
+                    <text class="comp-text" x="325" y="185">Honeypot Cowrie (Docker)</text>
+                    <text class="comp-text" x="325" y="205" font-size="10" fill="var(--text-muted)">Captura SSH / Telnet</text>
+                </g>
+
+                <!-- 3. AWS S3 Data Lake -->
+                <g id="node-s3">
+                    <rect class="component-node" x="420" y="90" width="110" height="50" rx="6" />
+                    <text class="comp-text comp-title" x="435" y="112" fill="var(--accent-orange)">AWS S3</text>
+                    <text class="comp-text" x="435" y="128" font-size="10">Data Lake Logs</text>
+                </g>
+
+                <!-- 4. AWS VPC Network ACL -->
+                <g id="node-nacl">
+                    <rect class="component-node" x="310" y="270" width="160" height="60" rx="6" />
+                    <text class="comp-text comp-title" x="325" y="295" fill="var(--accent-red)">VPC Network ACL</text>
+                    <text class="comp-text" x="325" y="315" font-size="10">Firewall de Perímetro</text>
+                </g>
+
+                <!-- 5. Tailscale VPN Node (Bridge between AWS and Local) -->
+                <g id="node-vpn">
+                    <rect class="component-node" x="480" y="370" width="120" height="75" rx="6" />
+                    <text class="comp-text comp-title" x="495" y="395" fill="var(--accent-green-glow)">Tailscale</text>
+                    <text class="comp-text" x="495" y="415">Túnel VPN</text>
+                    <text class="comp-text" x="495" y="430" font-size="9" fill="var(--text-muted)">Acesso Zero-Trust</text>
+                </g>
+
+                <!-- 6. Python ETL Log Extractor (Local) -->
+                <g id="node-etl">
+                    <rect class="component-node" x="730" y="170" width="120" height="70" rx="6" />
+                    <text class="comp-text comp-title" x="742" y="195" fill="var(--accent-blue-glow)">Python ETL</text>
+                    <text class="comp-text" x="742" y="215">Log Extractor</text>
+                    <text class="comp-text" x="742" y="230" font-size="9" fill="var(--text-muted)">Limpeza de Eventos</text>
+                </g>
+
+                <!-- 7. Logstash Node (Local) -->
+                <g id="node-logstash">
+                    <rect class="component-node" x="930" y="190" width="110" height="70" rx="6" />
+                    <text class="comp-text comp-title" x="945" y="215" fill="#ffd700">Logstash</text>
+                    <text class="comp-text" x="945" y="235">Pipeline Engine</text>
+                    <text class="comp-text" x="945" y="250" font-size="9" fill="var(--text-muted)">Codec JSON / GeoIP</text>
+                </g>
+
+                <!-- 8. Elasticsearch Node (Local) -->
+                <g id="node-elasticsearch">
+                    <rect class="component-node" x="930" y="350" width="120" height="65" rx="6" />
+                    <text class="comp-text comp-title" x="942" y="375" fill="var(--accent-blue-glow)">Elasticsearch</text>
+                    <text class="comp-text" x="942" y="395">Base Central SIEM</text>
+                </g>
+
+                <!-- 9. AlienVault OTX Enrichment (Local API call) -->
+                <g id="node-otx">
+                    <rect class="component-node" x="930" y="450" width="120" height="55" rx="6" />
+                    <text class="comp-text comp-title" x="942" y="472" fill="var(--accent-blue-glow)">AlienVault OTX</text>
+                    <text class="comp-text" x="942" y="490" font-size="10">Threat Intel OSINT</text>
+                </g>
+
+                <!-- 10. Isolation Forest ML Anomaly Detector (Local) -->
+                <g id="node-ml">
+                    <rect class="component-node" x="930" y="530" width="130" height="60" rx="6" />
+                    <text class="comp-text comp-title" x="942" y="555" fill="var(--accent-purple-glow)">Machine Learning</text>
+                    <text class="comp-text" x="942" y="575" font-size="10">Isolation Forest</text>
+                </g>
+
+                <!-- 11. Neo4j Knowledge Graph (Local Ontology mapping) -->
+                <g id="node-neo4j">
+                    <rect class="component-node" x="730" y="465" width="120" height="60" rx="6" />
+                    <text class="comp-text comp-title" x="742" y="490" fill="var(--accent-purple-glow)">Neo4j Graph</text>
+                    <text class="comp-text" x="742" y="510" font-size="10">Grafo de Ontologia</text>
+                </g>
+
+                <!-- 12. Kibana UI Dashboard (Local UI Output) -->
+                <g id="node-kibana">
+                    <rect class="component-node" x="730" y="350" width="120" height="65" rx="6" />
+                    <text class="comp-text comp-title" x="742" y="375" fill="#0056b3">Kibana UI</text>
+                    <text class="comp-text" x="742" y="395" font-weight="bold" fill="var(--accent-green-glow)">Dashboard Ativo</text>
+                </g>
+
+                <!-- 13. Ollama / Llama 3 Agent AI (Local Intelligence) -->
+                <g id="node-llama">
+                    <rect class="component-node" x="730" y="620" width="120" height="70" rx="6" />
+                    <text class="comp-text comp-title" x="742" y="645" fill="var(--accent-purple-glow)">Ollama Llama3</text>
+                    <text class="comp-text" x="742" y="665" font-weight="bold" fill="var(--accent-orange)">Agentic AI</text>
+                </g>
+
+                <!-- Cloud Active Defense Services (Triggered by SOAR) -->
+                <!-- 14. AWS API Gateway -->
+                <g id="node-gateway">
+                    <rect class="component-node" x="490" y="740" width="120" height="55" rx="6" />
+                    <text class="comp-text comp-title" x="502" y="762" fill="var(--accent-blue)">AWS API Gateway</text>
+                    <text class="comp-text" x="502" y="780" font-size="10">Endpoint Seguro</text>
+                </g>
+
+                <!-- 15. AWS Lambda Function -->
+                <g id="node-lambda">
+                    <rect class="component-node" x="310" y="740" width="100" height="55" rx="6" />
+                    <text class="comp-text comp-title" x="322" y="762" fill="var(--accent-orange)">AWS Lambda</text>
+                    <text class="comp-text" x="322" y="780" font-size="10">Serverless Script</text>
+                </g>
+
+                <!-- ASSETS OVERLAYS (BLOCKED GRAPHICS) -->
+                <!-- Local Firewall Block Shield (iptables Docker) -->
+                <g id="asset-block-local" class="block-asset">
+                    <circle cx="340" cy="180" r="14" fill="var(--accent-orange)" opacity="0.25"/>
+                    <path d="M 333 173 L 347 187 M 347 173 L 333 187" stroke="var(--accent-orange)" stroke-width="3.5" stroke-linecap="round"/>
+                    <text class="comp-text" x="310" y="243" fill="var(--accent-orange)" font-weight="bold" font-size="10">iptables DENY</text>
+                </g>
+
+                <!-- Cloud Network ACL Block Shield -->
+                <g id="asset-block-cloud" class="block-asset">
+                    <circle cx="250" cy="180" r="16" fill="var(--accent-red)" opacity="0.3"/>
+                    <path d="M 242 172 L 258 188 M 258 172 L 242 188" stroke="var(--accent-red-glow)" stroke-width="4" stroke-linecap="round"/>
+                    <text class="comp-text" x="210" y="125" fill="var(--accent-red-glow)" font-weight="bold" font-size="11">NACL BLOCKED</text>
+                </g>
+            </svg>
+        </div>
+    </div>
+
+    <script>
+        const term = document.getElementById('soc-terminal');
+        const soarPanel = document.getElementById('soar-interact-panel');
+
+        function writeLog(category, msg) {
+            const time = new Date().toTimeString().split(' ')[0];
+            let lblClass = 'lbl-siem';
+            if (category === 'ATAQUE') lblClass = 'lbl-attack';
+            if (category === 'VPN') lblClass = 'lbl-vpn';
+            if (category === 'IA') lblClass = 'lbl-ai';
+            if (category === 'SOAR') lblClass = 'lbl-soar';
+
+            term.innerHTML += `<div class="log-line"><span class="log-ts">[${time}]</span> <span class="log-lbl ${lblClass}">${category}</span> ${msg}</div>`;
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function resetAllStyles() {
+            document.querySelectorAll('.component-node').forEach(node => {
+                if(node.parentElement.id !== 'node-botnet') {
+                    node.className.baseVal = "component-node";
+                }
+            });
+            document.querySelectorAll('.net-link').forEach(link => {
+                link.className.baseVal = "net-link";
+            });
+            soarPanel.style.display = 'none';
+        }
+
+        function executeStep(stepNum) {
+            resetAllStyles();
+            document.querySelectorAll('.step-button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`step-btn-${stepNum}`).classList.add('active');
+
+            if (stepNum === 1) {
+                writeLog('ATAQUE', 'Botnet externa iniciou varrimento de força bruta brute-force na porta 22 do IP público da AWS.');
+                writeLog('ATAQUE', 'Honeypot Cowrie (dentro do EC2) aceitou a ligação simulada e começou a registar os inputs do invasor.');
+                document.querySelector('#node-cowrie rect').className.baseVal = "component-node active-red";
+                document.getElementById('link-attack').className.baseVal = "net-link flow-attack";
+            } 
+            else if (stepNum === 2) {
+                writeLog('VPN', 'Agente local detetou novos logs brutos gravados no contentor da AWS.');
+                writeLog('VPN', 'Estabelecendo tráfego seguro cifrado através do túnel Tailscale VPN Zero-Trust.');
+                writeLog('VPN', 'Logs descarregados com sucesso e entregues ao script Python ETL local.');
+                document.querySelector('#node-vpn rect').className.baseVal = "component-node active-green";
+                document.querySelector('#node-etl rect').className.baseVal = "component-node active-blue";
+                document.getElementById('link-cowrie-vpn').className.baseVal = "net-link flow-vpn";
+                document.getElementById('link-vpn-etl').className.baseVal = "net-link flow-vpn";
+            } 
+            else if (stepNum === 3) {
+                writeLog('SIEM', 'Python ETL executou parsing e higienização. Cópia enviada de imediato para o Data Lake AWS S3.');
+                writeLog('SIEM', 'Logstash consumiu a stream local estruturando campos em formato JSON nativo.');
+                writeLog('SIEM', 'Elasticsearch indexou o evento. Disparadas consultas à API do AlienVault OTX (IP classificado como bot ativo).');
+                writeLog('SIEM', 'Relação topológica persistida na base de dados de grafos Neo4j.');
+                
+                document.querySelector('#node-s3 rect').className.baseVal = "component-node active-blue";
+                document.querySelector('#node-logstash rect').className.baseVal = "component-node active-blue";
+                document.querySelector('#node-elasticsearch rect').className.baseVal = "component-node active-blue";
+                document.querySelector('#node-otx rect').className.baseVal = "component-node active-blue";
+                document.querySelector('#node-neo4j rect').className.baseVal = "component-node active-purple";
+                
+                document.getElementById('link-etl-s3').className.baseVal = "net-link flow-siem";
+                document.getElementById('link-etl-logstash').className.baseVal = "net-link flow-siem";
+                document.getElementById('link-logstash-es').className.baseVal = "net-link flow-siem";
+                document.getElementById('link-es-otx').className.baseVal = "net-link flow-siem";
+                document.getElementById('link-es-neo4j').className.baseVal = "net-link flow-siem";
+            } 
+            else if (stepNum === 4) {
+                writeLog('IA', 'Módulo de Machine Learning (Isolation Forest) calculou anomalia crítica baseada no comportamento do comando.');
+                writeLog('IA', 'Ollama/Llama 3 analisou o contexto e confirmou mapeamento com MITRE Tactic: Command and Control.');
+                writeLog('SIEM', 'Evento publicado e renderizado no Dashboard do Kibana em tempo real.');
+                writeLog('SOAR', 'Alerta gerado. Botão de contenção ativa disponibilizado no Dashboard (Human-in-the-loop).');
+                
+                document.querySelector('#node-ml rect').className.baseVal = "component-node active-purple";
+                document.querySelector('#node-kibana rect').className.baseVal = "component-node active-green";
+                document.querySelector('#node-llama rect').className.baseVal = "component-node active-purple";
+                
+                document.getElementById('link-es-ml').className.baseVal = "net-link flow-siem";
+                document.getElementById('link-es-kibana').className.baseVal = "net-link flow-siem";
+                document.getElementById('link-kibana-llama').className.baseVal = "net-link flow-siem";
+                document.getElementById('link-ml-llama').className.baseVal = "net-link flow-siem";
+                
+                soarPanel.style.display = 'block';
+            }
+        }
+
+        function triggerMitigation(type) {
+            document.getElementById('asset-block-local').style.display = 'none';
+            document.getElementById('asset-block-cloud').style.display = 'none';
+
+            if (type === 'local') {
+                writeLog('SOAR', 'Comando executado via Dashboard Kibana / Agente de IA para mitigação local.');
+                writeLog('SOAR', 'Orquestrador enviou sinal reverso de contenção via SSH/API para o docker do EC2.');
+                writeLog('DEFESA', 'Regra aplicada localmente na tabela iptables do Docker. Tráfego do IP bloqueado no contentor.');
+                document.getElementById('link-soar-local').className.baseVal = "net-link flow-soar-local";
+                document.getElementById('asset-block-local').style.display = 'block';
+                
+                document.getElementById('global-status-text').innerText = 'Ameaça Contida Localmente (iptables)';
+            } 
+            else if (type === 'cloud') {
+                writeLog('SOAR', 'Comando de contenção máxima ativado. Orquestração de API Cloud iniciada.');
+                writeLog('SOAR', 'Efetuando chamada HTTPS autenticada para o AWS API Gateway.');
+                writeLog('SOAR', 'AWS Lambda serverless executada. Injetando regra DENY na infraestrutura da nuvem.');
+                writeLog('DEFESA', 'VPC Network ACL atualizada com sucesso. IP do atacante banido no perímetro exterior da AWS Cloud.');
+                
+                document.querySelector('#node-gateway rect').className.baseVal = "component-node active-orange";
+                document.querySelector('#node-lambda rect').className.baseVal = "component-node active-orange";
+                document.querySelector('#node-nacl rect').className.baseVal = "component-node active-red";
+                
+                document.getElementById('link-soar-cloud-gw').className.baseVal = "net-link flow-soar-cloud";
+                document.getElementById('link-gw-lambda').className.baseVal = "net-link flow-soar-cloud";
+                document.getElementById('link-lambda-nacl').className.baseVal = "net-link flow-soar-cloud";
+                document.getElementById('link-attack').className.baseVal = "net-link"; // Interrompe a animação da linha de ataque original
+                
+                document.getElementById('asset-block-cloud').style.display = 'block';
+                document.getElementById('global-status-text').innerText = 'Ameaça Banida no Perímetro da Nuvem (AWS NACL)';
+            } 
+            else {
+                writeLog('SISTEMA', 'Acção abortada pelo operador. O tráfego continuará sob escuta e análise passiva.');
+                resetAllStyles();
+            }
+            soarPanel.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
