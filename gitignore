@@ -1,0 +1,13 @@
+.env
+
+*.json
+
+pull_data.bat
+
+istecaws.pem
+
+docker-compose.yml
+
+.lock
+
+/geoip_database_management/
